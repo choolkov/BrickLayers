@@ -947,8 +947,9 @@ class BrickLayersProcessor:
 
     Optimized for efficiency using **line-by-line processing**, for processing Big Gcode files
     """
-    def __init__(self, extrusion_global_multiplier: float = 1.05, start_at_layer: int = 3, layers_to_ignore = None, verbosity: int = 0, progress_callback: Optional[Callable[[dict], None]] = None):
+    def __init__(self, extrusion_global_multiplier: float = 1.05, multiply_only_bricks = False, start_at_layer: int = 3, layers_to_ignore = None, verbosity: int = 0, progress_callback: Optional[Callable[[dict], None]] = None):
         self.extrusion_global_multiplier = extrusion_global_multiplier
+        self.multiply_only_bricks = multiply_only_bricks
         self.start_at_layer = start_at_layer
         self.layers_to_ignore = layers_to_ignore
         self.verbosity = verbosity
@@ -1643,6 +1644,7 @@ class BrickLayersProcessor:
         from_gcode = GCodeLine.from_gcode #cache the lookup
 
         extrusion_global_multiplier = self.extrusion_global_multiplier
+        multiply_only_bricks = self.multiply_only_bricks
         start_at_layer = self.start_at_layer
         layers_to_ignore = self.layers_to_ignore
         verbosity = self.verbosity
@@ -1923,8 +1925,13 @@ class BrickLayersProcessor:
 
 
                                 
-                                # Here the actual internal perimeter line is added, with a calculated multiplier:
-                                calculated_line = BrickLayersProcessor.new_line_from_multiplier(kept_line, extrusion_multiplier)
+                                if multiply_only_bricks:
+                                    # Here the actual internal perimeter line is added, without a calculated multiplier:
+                                    calculated_line = BrickLayersProcessor.new_line_from_multiplier(kept_line, 1)
+                                else:
+                                    # Here the actual internal perimeter line is added, with a calculated multiplier:
+                                    calculated_line = BrickLayersProcessor.new_line_from_multiplier(kept_line, extrusion_multiplier)
+                                
                                 buffer_lines.append(calculated_line)
 
 
@@ -2238,6 +2245,8 @@ Argument names are case-insensitive, so:
     parser.add_argument("-extrusionMultiplier", type=float, default=1.05,
                         help="\nExtrusion multiplier for first layer\n"
                              "Default: 1.05x\n\n")
+    parser.add_argument("-multiplyOnlyBricks", action=argparse.BooleanOptionalAction,
+                        help="\nApply the multiplier only to shifted layers\n\n")
     parser.add_argument("-startAtLayer", type=int, default=3, 
                         help="\nPreserves the first layers\n"
                              "(default: 3). Set to 1 to start from the very first layer\n\n")
@@ -2382,6 +2391,7 @@ Argument names are case-insensitive, so:
         # Setting up the BrickProcessor:
         processor = BrickLayersProcessor(
             extrusion_global_multiplier=args_dict["extrusionmultiplier"],
+            multiply_only_bricks = args_dict["multiplyonlybricks"],
             start_at_layer=args_dict["startatlayer"],
             layers_to_ignore=final_ignored_layers,
             verbosity=verbosity
